@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <title>ToDone: A Todo App</title>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/limonte-sweetalert2/11.0.18/sweetalert2.min.css"
+    />
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body>
+    {% comment %} {% include "header.html" %} {% endcomment %}
+    <header class="text-gray-600 body-font">
+        <div class="container mx-auto flex flex-wrap p-5 flex-col md:flex-row items-center">
+          <a class="flex title-font font-medium items-center text-gray-900 mb-4 md:mb-0" href="{% url "homepage" %}">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="w-10 h-10 text-white p-2 bg-indigo-500 rounded-full" viewBox="0 0 24 24">
+              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path>
+            </svg>
+            <span class="ml-3 text-xl">ToDone</span>
+          </a>
+          
+        </div>
+      </header>
+
+    <div class="my-6 mx-auto max-w-xl bg-white font-[sans-serif] mt-20">
+      <h1 class="text-3xl text-[#333] font-extrabold text-center">Add Todo</h1>
+      <form class="mt-8 space-y-4" id="todo-form">
+        <input
+          id="title"
+          type="text"
+          placeholder="Title"
+          class="w-full rounded-md py-3 px-4 bg-gray-100 text-sm outline-blue-500"
+        />
+        <textarea
+          id="description"
+          placeholder="Description"
+          rows="6"
+          class="w-full rounded-md px-4 bg-gray-100 text-sm pt-3 outline-blue-500"
+        ></textarea>
+
+        <input
+          id="file"
+          type="file"
+          class="w-full text-gray-500 font-medium text-sm bg-gray-100 file:cursor-pointer cursor-pointer file:border-0 file:py-2 file:px-4 file:mr-4 file:bg-gray-800 file:hover:bg-gray-700 file:text-white rounded"
+        />
+
+        <div>
+          <label class="text-sm mb-2 block">Due Date</label>
+          <input
+            type="date"
+            class="px-4 py-3 bg-[#f0f1f2] text-black w-full text-sm outline-[#007bff] rounded"
+            id="due-date"
+          />
+        </div>
+
+        <div>
+          <label class="text-sm mb-2 block">Due Time</label>
+          <input
+            type="time"
+            class="px-4 py-3 bg-[#f0f1f2] text-black w-full text-sm outline-[#007bff] rounded"
+            id="due-time"
+          />
+        </div>
+
+        <button
+          id="add-todo-btn"
+          type="button"
+          class="text-white bg-blue-500 hover:bg-blue-600 font-semibold rounded-md text-sm px-4 py-3 w-full"
+        >
+          Add Todo
+        </button>
+      </form>
+    </div>
+
+    {% include "footer.html" %}
+
+    {% comment %} {% include "footer.html" %} {% endcomment %}
+
+    <!-- Include SweetAlert JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/limonte-sweetalert2/11.0.18/sweetalert2.min.js"></script>
+
+    <script>
+      function getCsrfToken() {
+        const cookieValue = document.cookie
+          .split("; ")
+          .find((row) => row.startsWith("csrftoken="))
+          .split("=")[1];
+        return cookieValue;
+      }
+      document.getElementById("add-todo-btn").addEventListener("click", () => {
+        const csrfToken = getCsrfToken();
+        let title = document.getElementById("title").value;
+        let add_todo_btn = document.getElementById("add-todo-btn");
+        
+        let description = document.getElementById("description").value;
+        let file = document.getElementById("file").files[0];
+        let dueDate = document.getElementById("due-date").value; // Get due date value
+        let dueTime = document.getElementById("due-time").value;
+        let currentTime = new Date().toISOString(); // Get current time in ISO format
+
+        console.log(dueDate, dueTime)
+        // Validate title and description fields
+        if (title.trim() === "" || description.trim() === "") {
+          Swal.fire({
+            title: "",
+            text: "Title and description are required.",
+            icon: "warning",
+            confirmButtonText: "OK",
+          });
+          return; 
+        }
+
+        if(dueDate == "" || dueTime == ""){
+            Swal.fire({
+                title: "",
+                text: "Date and Time field are required.",
+                icon: "warning",
+                confirmButtonText: "OK",
+              });
+              return;
+        }
+
+        // Validate due date and time
+        let selectedDateTime = new Date(
+          dueDate + "T" + dueTime + ":00"
+        ).toISOString();
+        if (selectedDateTime <= currentTime) {
+          Swal.fire({
+            title: "",
+            text: "Due date and time should be greater than current time.",
+            icon: "warning",
+            confirmButtonText: "OK",
+          });
+
+          return;
+        }
+
+        let dateTimeString = dueDate + "T" + dueTime + ":00";
+        console.log(dateTimeString);
+
+        let formdata = new FormData();
+        formdata.append("title", title);
+        formdata.append("desc", description);
+        formdata.append("file", file);
+        formdata.append("date_and_time", dateTimeString);
+
+        add_todo_btn.disabled = true;
+        add_todo_btn.innerText = "Adding..."
+
+        fetch("{% url 'add_new_todo_logic' %}", {
+          method: "POST",
+          headers: {
+            "X-CSRFToken": csrfToken,
+          },
+          body: formdata,
+        })
+          .then((res) => {
+            if (!res.ok) {
+              throw new Error("An error occured!");
+            }
+            return res.json();
+          })
+          .then((data) => {
+            console.log(data);
+            if (data.status === 200) {
+              Swal.fire({
+                title: "",
+                text: data.message,
+                icon: "success",
+                confirmButtonText: "OK",
+              });
+
+              document.getElementById("title").value = "";
+              document.getElementById("description").value = "";
+              document.getElementById("file").value = "";
+              document.getElementById("due-date").value = "";
+              document.getElementById("due-time").value = "";
+              add_todo_btn.disabled = false;
+              add_todo_btn.innerText = "Add Todo"
+            }
+          })
+          .catch((error) => {
+            console.log(error);
+          });
+      });
+    </script>
+  </body>
+</html>
